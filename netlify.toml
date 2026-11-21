@@ -1,0 +1,8 @@
+[build]
+publish = "public"
+
+[server]
+included_files = ["public/**"]
+
+[server.scale]
+max = 1
