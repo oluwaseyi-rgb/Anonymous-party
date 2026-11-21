@@ -2,7 +2,7 @@
 publish = "public"
 
 [server]
-included_files = ["public/**"]
+includedFiles = ["public/**"]
 
 [server.scale]
 max = 1
