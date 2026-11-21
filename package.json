@@ -1,0 +1,22 @@
+{
+  "name": "anonymous-party",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A private, real-time party game for friends.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "server.js": "^1.0.0",
+    "socket.io": "^4.8.1"
+  }
+}

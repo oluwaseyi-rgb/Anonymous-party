@@ -1,0 +1,23 @@
+{
+  "name": "Anonymous Party",
+  "short_name": "Anonymous Party",
+  "description": "Your people. Your party.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9f7f2",
+  "theme_color": "#f9f7f2",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

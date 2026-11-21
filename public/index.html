@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f9f7f2">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="description" content="A private party game for your people. Make a room, send the link, and let the chaos begin.">
+  <title>Anonymous Party — Your people. Your party.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="Anonymous Party home"><img class="brand-mark-image" src="/icon.svg" alt="Anonymous Party"></a><div class="top-note"><span class="live-dot"></span> private rooms </div><button class="sound-toggle" id="sound-toggle" aria-label="Toggle sound" title="Toggle sound">🔊</button></header>
+  <main id="app" class="app-shell">
+    <section id="home-view" class="view home-view">
+      <div class="hero-copy"><div class="eyebrow"><span>YOUR PEOPLE. YOUR PARTY.</span><span class="eyebrow-stars">✳ ✳ ✳</span></div><h1>Good friends.<br><span class="headline-highlight">Questionable</span><br>answers.</h1><p class="hero-description">Gather your people and see who <em>really</em> know you.</p><div class="hero-actions"><button class="button button-primary button-large" id="host-open"><span>Host a game</span><span class="button-arrow">↗</span></button><button class="button button-quiet button-large" id="join-open">I have an invite <span>→</span></button></div><div class="social-proof"><div class="mini-avatars"><span>😎</span><span>🧢</span><span>😈</span><span>🌼</span></div><span>Made for the group chat<br><strong>that actually meets up.</strong></span></div></div>
+      <div class="hero-art"><div class="art-spark spark-one">✳</div><div class="art-spark spark-two">✦</div><div class="art-spark spark-three">✳</div><div class="arc arc-back"></div><div class="arc arc-front"></div><div class="orbit-card orbit-top"><span>👀</span><b>who said that?</b></div><div class="orbit-card orbit-side"><span>🌶️</span><b>spicy take!</b></div><div class="orbit-card orbit-bottom"><span>😭</span><b>called out</b></div><div class="center-face"><div class="face-hair"></div><div class="face-eyebrows"><i></i><i></i></div><div class="face-eyes"><i></i><i></i></div><div class="face-nose"></div><div class="face-mouth"></div><div class="face-blush blush-left"></div><div class="face-blush blush-right"></div><div class="face-ear ear-left"></div><div class="face-ear ear-right"></div></div><div class="hero-sticker">NO<br>FILTER<span>™</span></div></div>
+      <div class="game-strip"><div class="strip-heading"><span>THE LINEUP</span><span>01 — 05</span></div><div class="game-list" id="game-list"></div><div class="strip-footer"><span>New room. Same link. All night.</span><span>new games coming soon ↓</span></div></div>
+      <div class="how-row"><span>01. MAKE A ROOM</span><span>02. SEND THE LINK</span><span>03. GET EXPOSED</span><span class="how-note">Good vibes only ✳</span></div>
+    </section>
+    <section id="room-view" class="view room-view hidden" aria-live="polite"></section>
+    <section id="join-view" class="view join-view hidden">
+      <div class="join-card"><a href="/" class="back-link" id="join-back">← back</a><div class="join-icon">👋</div><div class="eyebrow">YOU’RE ON THE LIST</div><h2>What do your<br>friends call you?</h2><p class="muted" id="join-room-label">Pick a name and get in there.</p><label class="field-label" for="nickname">YOUR NICKNAME</label><input id="nickname" class="text-input" maxlength="20" placeholder="e.g. Enter nickname" autocomplete="nickname"><label class="field-label avatar-label">PICK YOUR LOOK <span>optional</span></label><div class="avatar-picker" id="avatar-picker"></div><div class="upload-row"><label class="upload-button">＋ Add a photo<input id="avatar-upload" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><span>PNG / JPG · max 1 MB</span></div><button class="button button-primary join-submit" id="join-submit">Join the party <span>↗</span></button><p class="join-privacy">No account. No fuss. Just your friends.</p></div>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <div id="confession-popups" class="confession-popups" aria-live="polite"></div>
+  <div id="modal-layer" class="modal-layer hidden"></div>
+  <script src="/socket.io/socket.io.js"></script><script src="/app.js" defer></script>
+</body>
+</html>
