@@ -16,7 +16,7 @@ const rooms = new Map();
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
   : null;
-const PHOTO_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'party-photos';
+const PHOTO_BUCKET = process.env.SUPABASE_STORAGE_BUCKET;
 const games = [
   { id: 'most-likely', name: "Who’s Most Likely?", emoji: '👀', description: 'Point the spotlight at the friend who fits the prompt.' },
   { id: 'smash-or-pass', name: 'Smash or Pass', emoji: '✨', description: 'A playful, opt-in photo voting game.' },
