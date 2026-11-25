@@ -4,6 +4,7 @@ const path = require('node:path');
 const express = require('express');
 const helmet = require('helmet');
 const http = require('node:http');
+const fs = require('node:fs');
 const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -42,10 +43,12 @@ const opinionPrompts = ['University grades don’t determine intelligence.','Bre
 const exposePrompts = ['Who would sell out the group for ₦1 million?','Who would accidentally become the group’s manager?','Who would bring the most unnecessary item on a camping trip?','Who is most likely to forget why they opened the fridge?','Who could talk their way into a free dessert?','Who would start a side quest during a quick errand?','Who is secretly the most competitive?','Who would get adopted by a stranger’s family at a party?'];
 const confessions = ['I once waved back at someone who wasn’t waving at me, then committed to it.','I have opened the fridge, forgotten why, and closed it like I meant to.','I rehearse phone calls before making them.','I have a playlist for a situation that has never happened.','I pretend to understand a film ending and then search it later.','I have walked into a room and immediately forgotten my mission.','I have sent a screenshot to the person in the screenshot.','I have an oddly specific fear of automatic doors not opening.'];
 const reactions = ['😂','😭','😳','❤️'];
+// When bundled for Netlify, __dirname no longer points at the repo root, so fall back to the working directory.
+const PUBLIC_DIR = [path.join(__dirname, 'public'), path.join(process.cwd(), 'public')].find(dir => fs.existsSync(path.join(dir, 'index.html'))) || path.join(__dirname, 'public');
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '20kb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR));
 app.get('/api/games', (_req, res) => res.json(games));
 app.get('/api/prompt-pools', (_req, res) => res.json({ 'most-likely': prompts, 'unpopular-opinions': opinionPrompts, 'expose-friends': exposePrompts }));
 app.get('/api/room/:id', (req, res) => {
@@ -53,7 +56,7 @@ app.get('/api/room/:id', (req, res) => {
   if (!room || room.status === 'ended' || room.expiresAt < Date.now()) return res.status(404).json({ error: 'This room has ended or the invitation has expired.' });
   res.json({ roomId: room.id, status: room.status, gameId: room.gameId, round: room.round ? { prompt: room.round.prompt, status: room.round.status } : null });
 });
-app.get(/^\/(?!api\/|socket\.io\/|assets\/).*/, (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get(/^\/(?!api\/|socket\.io\/|assets\/).*/, (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
 
 function makeRoom() {
   let id;
