@@ -6,3 +6,9 @@ includedFiles = ["public/**"]
 
 [server.scale]
 max = 1
+
+# Room invite links are client-side routes: serve the app shell from the CDN.
+[[redirects]]
+from = "/room/*"
+to = "/index.html"
+status = 200
