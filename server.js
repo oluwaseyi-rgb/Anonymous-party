@@ -13,6 +13,7 @@ const server = http.createServer(app);
 const io = new Server(server, { connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000, skipMiddlewares: true } });
 const PORT = Number(process.env.PORT) || 3000;
 const ROOM_TTL = Math.max(1, Number(process.env.ROOM_TTL_HOURS) || 12) * 60 * 60 * 1000;
+const HOST_RECONNECT_GRACE_MS = Math.max(1, Number(process.env.HOST_RECONNECT_GRACE_MINUTES) || 30) * 60 * 1000;
 const rooms = new Map();
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -62,12 +63,12 @@ function makeRoom() {
   let id;
   do { id = crypto.randomBytes(4).toString('hex').toUpperCase(); } while (rooms.has(id));
   const now = Date.now();
-  const room = { id, status: 'lobby', createdAt: now, expiresAt: now + ROOM_TTL, hostId: null, players: new Map(), gameId: 'most-likely', round: null, roundNumber: 0, gameVote: null, scores: new Map(), confessions: [], selectedBuiltInPrompts: {}, customPrompts: { 'most-likely': [], 'unpopular-opinions': [], 'expose-friends': [] }, promptModes: { 'most-likely': 'mixed', 'unpopular-opinions': 'mixed', 'expose-friends': 'mixed' }, promptIndices: {} };
+  const room = { id, status: 'lobby', createdAt: now, expiresAt: now + ROOM_TTL, hostId: null, actingHostId: null, players: new Map(), gameId: 'most-likely', round: null, roundNumber: 0, gameVote: null, scores: new Map(), confessions: [], selectedBuiltInPrompts: {}, customPrompts: { 'most-likely': [], 'unpopular-opinions': [], 'expose-friends': [] }, promptModes: { 'most-likely': 'mixed', 'unpopular-opinions': 'mixed', 'expose-friends': 'mixed' }, promptIndices: {} };
   rooms.set(id, room);
   return room;
 }
 function publicState(room) {
-  const players = [...room.players.values()].map(p => ({ id: p.id, nickname: p.nickname, avatar: p.avatar, host: p.id === room.hostId, ready: p.ready, connected: p.connected, inRound: Boolean(room.round?.status==='active'&&room.round.eligible.includes(p.id)), photoConsent: Boolean(p.photoConsent), score: room.scores.get(p.id) || 0 }));
+  const players = [...room.players.values()].map(p => ({ id: p.id, nickname: p.nickname, avatar: p.avatar, host: p.id === room.hostId || p.id === room.actingHostId, ready: p.ready, connected: p.connected, inRound: Boolean(room.round?.status==='active'&&room.round.eligible.includes(p.id)), photoConsent: Boolean(p.photoConsent), score: room.scores.get(p.id) || 0 }));
   const votes = room.round ? [...room.round.votes.keys()] : [];
   const submittedCount=room.gameId==='smash-or-pass'&&room.round?.photoVotes?[...room.round.photoVotes.values()].reduce((n,votes)=>n+votes.size,0):(room.round?.playerAnswers?.size||0);
   return { roomId: room.id, status: room.status, hostId: room.hostId, players, playerCount: players.length, gameId: room.gameId, gameName: games.find(g => g.id === room.gameId)?.name, roundNumber: room.roundNumber, promptModes: room.promptModes, selectedBuiltInPrompts: room.selectedBuiltInPrompts, customPromptCounts: Object.fromEntries(Object.entries(room.customPrompts).map(([id,list])=>[id,list.length])), confessionHistory: room.confessions, round: room.round ? { prompt: room.round.prompt, status: room.round.status, submittedCount, eligibleCount: room.round.eligible.length, photoDeck: room.round.photoDeck?.map(({id,ownerId,nickname,photo})=>({id,ownerId,nickname,photo})) || [], photoResults: room.round.status === 'results' ? room.round.photoResults : null, result: room.round.status === 'results' ? room.round.result : null } : null, gameVote: room.gameVote ? { options: room.gameVote.options, votes: Object.fromEntries(room.gameVote.votes), result: room.gameVote.result } : null, leaderboard: players.sort((a,b) => b.score-a.score).map((p,i) => ({...p, rank:i+1})) };
@@ -112,7 +113,7 @@ function startRound(room) {
   return true;
 }
 function getRoom(socket) { return socket.data.roomId ? rooms.get(socket.data.roomId) : null; }
-function isHost(room, socket) { return room?.hostId === socket.data.playerId; }
+function isHost(room, socket) { return room?.hostId === socket.data.playerId || room?.actingHostId === socket.data.playerId; }
 
 io.on('connection', socket => {
   socket.on('room:create', ({ nickname, avatar } = {}, ack = () => {}) => {
@@ -135,15 +136,13 @@ io.on('connection', socket => {
       room.players.set(player.id, player); room.scores.set(player.id, 0);
     } else { player.connected = true; player.disconnectedAt = null; }
     player.socketId=socket.id;
-    if(player.id===room.hostId&&room.status==='host-paused'){
-      if(room.hostDisconnectTimer)clearTimeout(room.hostDisconnectTimer);
-      room.hostDisconnectTimer=null;
-      room.status=room.pausedStatus||'lobby';
-      room.pausedStatus=null;
-      
+    if (player.id === room.hostId && room.hostDisconnectTimer) {
+      clearTimeout(room.hostDisconnectTimer);
+      room.hostDisconnectTimer = null;
+      room.actingHostId = null;
     }
     socket.data.roomId = room.id; socket.data.playerId = player.id; socket.join(room.id);
-    ack({ ok: true, roomId: room.id, playerId: player.id, host: player.id === room.hostId }); emitState(room);
+    ack({ ok: true, roomId: room.id, playerId: player.id, host: player.id === room.hostId || player.id === room.actingHostId }); emitState(room);
   });
   socket.on('player:ready', ({ ready } = {}) => { const room = getRoom(socket); const p = room?.players.get(socket.data.playerId); if (!p || room.status !== 'lobby') return; p.ready = Boolean(ready); emitState(room); });
   socket.on('prompt:mode',({gameId,mode}={})=>{const room=getRoom(socket);if(!isHost(room,socket)||!['lobby','playing'].includes(room.status)||room.round?.status==='active')return fail(socket,'The host can change prompt settings between rounds.');if(!room.customPrompts[gameId]||!['defaults','custom','mixed'].includes(mode))return fail(socket,'Choose a supported prompt game and source.');if(mode==='custom'&&!room.customPrompts[gameId].length)return fail(socket,'Add at least one custom prompt for this game first.');room.promptModes[gameId]=mode;if(mode!=='defaults')delete room.selectedBuiltInPrompts[gameId];emitState(room);socket.emit('app:notice',{message:`Prompt source updated to ${mode}.`});});
@@ -168,7 +167,7 @@ io.on('connection', socket => {
   socket.on('round:next', () => { const room=getRoom(socket); if(!isHost(room,socket)||room.status!=='playing'||room.round?.status!=='results')return fail(socket,'The host can start the next round after results.'); if(!startRound(room))return fail(socket,'At least two players must be connected.'); });
   socket.on('round:restart', () => { const room=getRoom(socket); if(!isHost(room,socket)||room.status!=='playing')return fail(socket,'Only the host can restart a round.'); room.roundNumber--; if(!startRound(room))return fail(socket,'At least two players must be connected.'); });
   socket.on('session:end', () => { const room=getRoom(socket); if(!isHost(room,socket))return fail(socket,'Only the host can end this session.'); clearRoundTimer(room); room.status='ended'; io.to(room.id).emit('room:ended'); rooms.delete(room.id); });
-  socket.on('disconnect', () => { const room=getRoom(socket); const p=room?.players.get(socket.data.playerId); if(!room||!p)return; if(p.socketId!==socket.id)return;p.socketId=null;p.connected=false; p.disconnectedAt=Date.now(); if(p.id===room.hostId){ room.pausedStatus=room.status; room.status='host-paused'; room.hostDisconnectTimer=setTimeout(()=>{const current=rooms.get(room.id);if(current===room&&current.status==='host-paused'){current.status='ended';io.to(room.id).emit('room:ended',{reason:'host-timeout'});rooms.delete(room.id);}},5*60*1000);room.hostDisconnectTimer.unref?.(); } emitState(room); });
+  socket.on('disconnect', () => { const room=getRoom(socket); const p=room?.players.get(socket.data.playerId); if(!room||!p)return; if(p.socketId!==socket.id)return;p.socketId=null;p.connected=false; p.disconnectedAt=Date.now(); if(p.id===room.hostId||p.id===room.actingHostId){if(p.id===room.hostId){room.actingHostId=[...room.players.values()].find(player=>player.connected&&player.id!==p.id)?.id||null;room.hostDisconnectTimer=setTimeout(()=>{const current=rooms.get(room.id);const hostPlayer=current?.players.get(current.hostId);if(current===room&&!hostPlayer?.connected){current.status='ended';io.to(room.id).emit('room:ended',{reason:'host-timeout'});rooms.delete(room.id);}},HOST_RECONNECT_GRACE_MS);room.hostDisconnectTimer.unref?.();}else{room.actingHostId=[...room.players.values()].find(player=>player.connected&&player.id!==p.id&&player.id!==room.hostId)?.id||null;} } emitState(room); });
 });
 function validAvatar(value) { if(typeof value!=='string')return ''; if(value.length<=120000&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value))return value; return ['😎','🧢','😈','🌼','🐸','🦋','🧋','🪩','🐻','🍒','🦊','🌈'].includes(value)?value:''; }
 setInterval(()=>{ const now=Date.now(); for(const [id,room] of rooms){ for(const [pid,p] of room.players){ if(!p.connected&&p.disconnectedAt&&now-p.disconnectedAt>ROOM_TTL)room.players.delete(pid); } if(room.expiresAt<now){clearRoundTimer(room);io.to(id).emit('room:ended');rooms.delete(id);} } },60_000).unref();
